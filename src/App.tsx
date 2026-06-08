@@ -34,6 +34,31 @@ const toDisplay = (localized: Record<string, string>, language: string, fallback
 
 const formatPrice = (value: number): string => `€${value.toFixed(2)}`
 
+const isStringRecord = (value: unknown): value is Record<string, string> =>
+  !!value &&
+  typeof value === 'object' &&
+  !Array.isArray(value) &&
+  Object.values(value as Record<string, unknown>).every((entry) => typeof entry === 'string')
+
+const isVariantOption = (value: unknown): value is VariantOption =>
+  !!value &&
+  typeof value === 'object' &&
+  typeof (value as VariantOption).id === 'string' &&
+  typeof (value as VariantOption).name === 'string' &&
+  typeof (value as VariantOption).priceDelta === 'number' &&
+  Number.isFinite((value as VariantOption).priceDelta)
+
+const isVariantGroup = (value: unknown): boolean =>
+  !!value &&
+  typeof value === 'object' &&
+  typeof (value as { id: unknown }).id === 'string' &&
+  typeof (value as { name: unknown }).name === 'string' &&
+  Array.isArray((value as { options: unknown }).options) &&
+  (value as { options: unknown[] }).options.every(isVariantOption)
+
+const isModifierGroup = (value: unknown): boolean =>
+  isVariantGroup(value) && typeof (value as { required: unknown }).required === 'boolean'
+
 const parseOptionString = (raw: string): VariantOption[] =>
   raw
     .split(',')
@@ -52,11 +77,57 @@ const isMenuData = (value: unknown): value is MenuData => {
   }
 
   const parsed = value as Partial<MenuData>
-  if (!Array.isArray(parsed.languages) || !parsed.defaultLanguage || !Array.isArray(parsed.categories) || !Array.isArray(parsed.items)) {
+  if (
+    !Array.isArray(parsed.languages) ||
+    !parsed.languages.length ||
+    !parsed.languages.every((language) => typeof language === 'string' && language.length > 0) ||
+    typeof parsed.defaultLanguage !== 'string' ||
+    !parsed.languages.includes(parsed.defaultLanguage) ||
+    !Array.isArray(parsed.categories) ||
+    !Array.isArray(parsed.items) ||
+    typeof parsed.updatedAt !== 'string'
+  ) {
     return false
   }
 
-  return true
+  if (
+    !parsed.categories.every(
+      (category) =>
+        !!category &&
+        typeof category === 'object' &&
+        typeof category.id === 'string' &&
+        isStringRecord(category.names) &&
+        typeof category.hidden === 'boolean' &&
+        typeof category.order === 'number' &&
+        Number.isFinite(category.order),
+    )
+  ) {
+    return false
+  }
+
+  const categoryIds = new Set(parsed.categories.map((category) => category.id))
+  return parsed.items.every(
+    (item) =>
+      !!item &&
+      typeof item === 'object' &&
+      typeof item.id === 'string' &&
+      typeof item.categoryId === 'string' &&
+      categoryIds.has(item.categoryId) &&
+      isStringRecord(item.names) &&
+      isStringRecord(item.descriptions) &&
+      typeof item.image === 'string' &&
+      typeof item.basePrice === 'number' &&
+      Number.isFinite(item.basePrice) &&
+      typeof item.badge === 'string' &&
+      (item.visibility === 'visible' || item.visibility === 'hidden') &&
+      (item.availability === 'available' || item.availability === 'unavailable' || item.availability === 'hidden') &&
+      Array.isArray(item.variants) &&
+      item.variants.every(isVariantGroup) &&
+      Array.isArray(item.modifiers) &&
+      item.modifiers.every(isModifierGroup) &&
+      typeof item.order === 'number' &&
+      Number.isFinite(item.order),
+  )
 }
 
 function App() {
@@ -106,7 +177,7 @@ function App() {
     }
 
     const syncedMenu = { ...menu, updatedAt: new Date().toISOString() }
-    void saveMenu(syncedMenu)
+    void saveMenu(syncedMenu).catch(() => undefined)
   }, [menu, isLoaded])
 
   useEffect(() => {
@@ -330,12 +401,18 @@ function App() {
   }
 
   const handleTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
-    if (touchStartX.current === null) {
+    const startX = touchStartX.current
+    if (startX === null) {
       return
     }
 
-    const delta = event.changedTouches[0].clientX - touchStartX.current
+    const touch = event.changedTouches[0]
     touchStartX.current = null
+    if (!touch) {
+      return
+    }
+
+    const delta = touch.clientX - startX
 
     if (Math.abs(delta) < 30) {
       return

@@ -64,5 +64,9 @@ export const loadPreferences = (): Preferences => {
 }
 
 export const savePreferences = (prefs: Preferences): void => {
-  localStorage.setItem(PREF_KEY, JSON.stringify(prefs))
+  try {
+    localStorage.setItem(PREF_KEY, JSON.stringify(prefs))
+  } catch {
+    return
+  }
 }
