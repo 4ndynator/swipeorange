@@ -15,6 +15,13 @@ npm run dev
 npm run build
 ```
 
+## GitHub Pages deployment
+
+- The app builds with the correct GitHub Pages base path automatically inside GitHub Actions.
+- The deployment workflow lives at `/tmp/workspace/4ndynator/swipeorange/.github/workflows/deploy-pages.yml`.
+- After making the repository public, enable **Settings → Pages → Source: GitHub Actions** in GitHub.
+- Pushes to the `main` branch will then build and deploy the site automatically.
+
 ## Lint
 
 ```bash
