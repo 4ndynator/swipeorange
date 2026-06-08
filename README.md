@@ -17,10 +17,11 @@ npm run build
 
 ## GitHub Pages deployment
 
-- The app builds with the correct GitHub Pages base path automatically inside GitHub Actions.
+- Publishing the repository root directly does not work for this app because GitHub Pages serves the source `index.html`, which points to `/src/main.tsx` instead of the built `dist` assets.
 - The deployment workflow lives at `.github/workflows/deploy-pages.yml`.
-- After making the repository public, enable **Settings → Pages → Source: GitHub Actions** in GitHub.
-- Pushes to the `main` branch will then build and deploy the site automatically.
+- In GitHub, set **Settings → Pages → Source** to **GitHub Actions** so the workflow deploys the built `dist` output.
+- Pushes to the `main` branch will then lint, build, and deploy the site automatically.
+- The Vite build uses relative asset paths so the deployed app works correctly under the GitHub Pages project URL.
 
 ## Lint
 
